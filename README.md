@@ -1,9 +1,25 @@
 # Prediction Market Engine
 
-Milestone 1 is implemented and verified: raw fetching, exact quote
-normalization, bounded discovery, and 85 offline tests. Atul cleared
-the understanding checkpoints. Storage, an API, and scheduling remain
-planned in the [original PRD](Prediction_Market_Engine_PRD.md).
+Current scope: milestone 1 is verified, and step 2A creates the PostgreSQL schema
+through a migration. Fetch/normalize/discovery and tests work; the database
+tables are currently empty. Saving observations, an API, and scheduling are
+not implemented. The 2A learning checkpoint is pending.
+
+[Step 2A walkthrough](docs/step_2a.md) explains the tables, migration commands,
+and database verification. Revision 0001 was applied to real PostgreSQL 18.6;
+97 tests passed with database checks enabled. Docker Compose startup remains
+unverified because Docker is not installed on this machine. A temporary native
+PostgreSQL cluster is running on localhost:5433 for this checkpoint.
+
+Planning: the [original PRD](Prediction_Market_Engine_PRD.md), including section
+10's learning workflow, is now in this repository. [PLAN.md](PLAN.md) records
+the October 11 review decisions and acceptance checks for the same four
+milestones; [AGENTS.md](AGENTS.md) carries the implementation guidance. Atul
+answered the revised 1A questions; his formatting modification was not confirmed.
+Atul answered the simplified 1B questions correctly (50-cent ask, not crossed).
+He also answered the cursor question and the simplified page-cap question
+correctly (2 markets × 3 requests = 6 maximum). Implementation continued to 2A
+on explicit instruction.
 
 ## Run
 
@@ -344,7 +360,7 @@ both endpoints for an active binary market:
 
 This is live output, not a fixture. Its UTC date is October 12; its Los Angeles
 date is October 11. Milestone 1's technical acceptance checks are satisfied.
-Suggested commit after review: `feat: ingest and normalize Kalshi market quotes`.
+Milestone 1 commit: `4961f38` — `feat: ingest and normalize Kalshi market quotes`.
 No database, scheduled worker, retries, or query API is included.
 
 References checked for 1C:
@@ -373,4 +389,5 @@ change. The tests specify page sizes where their exact request counts matter.
 2. If limit=3, page_size=1, and max_pages=2, why can discovery return only two
    candidates even when more markets exist?
 
-Atul cleared the simplified 1C checkpoint. Milestone 1 is complete; step 2A follows.
+Atul cleared the simplified 1C checkpoint. Step 2A is now implemented; continue
+with the linked step 2A walkthrough and pause at its learning checkpoint.

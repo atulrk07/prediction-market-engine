@@ -5,10 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prediction-market-engine"
 version = "0.0.1"
-description = "Small Kalshi market-data backend, currently fetch and normalize only"
+description = "Small Kalshi market-data backend with PostgreSQL schema migrations"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["httpx==0.28.1", "pydantic==2.14.1"]
+dependencies = [
+    "httpx==0.28.1", "pydantic==2.14.1", "SQLAlchemy==2.0.54",
+    "alembic==1.20.0", "psycopg[binary]==3.3.6",
+]
 
 [project.scripts]
 kalshi-raw = "fetch_raw:main"
@@ -16,7 +19,8 @@ kalshi-quote = "fetch_quote:main"
 kalshi-discover = "discover_markets:main"
 
 [tool.setuptools]
-py-modules = ["fetch_raw", "fetch_quote", "normalize_quote", "discover_markets"]
+py-modules = ["fetch_raw", "fetch_quote", "normalize_quote", "discover_markets", "models", "database"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["postgres: requires a migrated, isolated PostgreSQL TEST_DATABASE_URL"]

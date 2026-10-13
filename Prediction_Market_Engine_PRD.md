@@ -327,4 +327,3 @@ Verified during project planning on October 9, 2026 (America/Los_Angeles). Reche
 - Kalshi public market data: https://docs.kalshi.com/getting_started/quick_start_market_data
 - Kalshi order-book semantics and fixed-point fields: https://docs.kalshi.com/getting_started/orderbook_responses
 - PostgreSQL locking (relevant to later paper trading): https://www.postgresql.org/docs/current/explicit-locking.html
-
