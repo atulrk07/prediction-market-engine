@@ -1,0 +1,24 @@
+{
+  "_fixture": "Synthetic normalization cases; never live market data",
+  "two_sided": {
+    "orderbook_fp": {
+      "yes_dollars": [["0.2000", "3.00"], ["0.4200", "10.00"]],
+      "no_dollars": [["0.3000", "2.00"], ["0.5500", "8.00"]]
+    }
+  },
+  "unordered": {
+    "orderbook_fp": {
+      "yes_dollars": [["0.4200", "10.00"], ["0.1000", "100.00"], ["0.2000", "3.00"]],
+      "no_dollars": [["0.5500", "8.00"], ["0.1000", "100.00"], ["0.3000", "2.00"]]
+    }
+  },
+  "yes_only": {"orderbook_fp": {"yes_dollars": [["0.4200", "10.00"]], "no_dollars": []}},
+  "no_only": {"orderbook_fp": {"yes_dollars": [], "no_dollars": [["0.5500", "8.00"]]}},
+  "empty": {"orderbook_fp": {"yes_dollars": [], "no_dollars": []}},
+  "subpenny": {"orderbook_fp": {"yes_dollars": [["0.4201", "10.25"]], "no_dollars": [["0.5502", "8.75"]]}},
+  "zero_quantity": {"orderbook_fp": {"yes_dollars": [["0.9999", "0.00"], ["0.4200", "10.00"]], "no_dollars": [["0.9999", "0.00"], ["0.5500", "8.00"]]}},
+  "all_zero_quantity": {"orderbook_fp": {"yes_dollars": [["0.42", "0"]], "no_dollars": [["0.55", "0"]]}},
+  "crossed": {"orderbook_fp": {"yes_dollars": [["0.4200", "10.00"]], "no_dollars": [["0.6000", "8.00"]]}},
+  "missing_side": {"orderbook_fp": {"yes_dollars": []}},
+  "malformed": {"orderbook_fp": {"yes_dollars": [["0.42", "10"], ["bad", "1"]], "no_dollars": []}}
+}

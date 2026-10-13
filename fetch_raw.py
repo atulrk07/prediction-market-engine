@@ -12,9 +12,9 @@ BASE_URL = "https://external-api.kalshi.com/trade-api/v2"
 TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 
-def fetch_json(client: httpx.Client, path: str) -> dict:
+def fetch_json(client: httpx.Client, path: str, params: dict | None = None) -> dict:
     """Fetch once; reject HTTP errors before decoding JSON."""
-    response = client.get(path)
+    response = client.get(path, params=params)
     print(f"GET {response.url} -> HTTP {response.status_code}", file=sys.stderr)
     response.raise_for_status()
     data = response.json()

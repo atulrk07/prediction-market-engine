@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prediction-market-engine"
+version = "0.0.1"
+description = "Small Kalshi market-data backend, currently fetch and normalize only"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["httpx==0.28.1", "pydantic==2.14.1"]
+
+[project.scripts]
+kalshi-raw = "fetch_raw:main"
+kalshi-quote = "fetch_quote:main"
+kalshi-discover = "discover_markets:main"
+
+[tool.setuptools]
+py-modules = ["fetch_raw", "fetch_quote", "normalize_quote", "discover_markets"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
