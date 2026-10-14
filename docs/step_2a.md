@@ -1,8 +1,10 @@
 # Step 2A: create the database structure
 
 Verified October 12, 2026 (America/Los_Angeles). Step 2A is implemented and
-applied to real PostgreSQL 18.6. The learning checkpoint is pending. No
-application ingestion writes, API, or worker have been implemented.
+applied to real PostgreSQL 18.6. Atul answered the table/migration questions
+correctly. At this historical checkpoint no ingestion writes existed; see
+[step 2B](step_2b.md) for save/read and [step 2C](step_2c.md) for current replay
+and native runtime commands.
 
 ## What this step does
 
@@ -82,11 +84,11 @@ PostgreSQL tests skip explicitly; the offline tests still run.
 
 Docker and PostgreSQL were initially absent. With approved mount/process access,
 we used the PostgreSQL 18.6 binaries from the official Postgres.app 2.9.6 disk
-image for an isolated temporary native cluster. The runtime is still running
-on localhost:5433; its data directory is /tmp/prediction-market-pg.dNzHHT.
-It is temporary verification storage, not the release's durable setup.
+image for an isolated temporary native cluster. Its original directory was
+/tmp/prediction-market-pg.dNzHHT. Step 2C has since restarted PostgreSQL on
+localhost:5433 from .local/postgres-data with existing history preserved.
 
-Actual results:
+Actual results at the 2A checkpoint:
 
 - Alembic upgrade head applied revision 0001 successfully to prediction_market.
 - PostgreSQL lists markets, snapshots, ingestion_runs, and alembic_version.
@@ -107,16 +109,9 @@ To inspect the current native cluster:
 TEST_DATABASE_URL='postgresql+psycopg://prediction_market:local_dev_password@127.0.0.1:5433/prediction_market_test' .venv/bin/python -m pytest -q
 ```
 
-To stop/restart this temporary cluster while its disk image remains mounted:
-
-```sh
-/tmp/prediction-market-postgres-image/Postgres.app/Contents/Versions/18/bin/pg_ctl -D /tmp/prediction-market-pg.dNzHHT -w -t 10 stop
-/tmp/prediction-market-postgres-image/Postgres.app/Contents/Versions/18/bin/pg_ctl -D /tmp/prediction-market-pg.dNzHHT -l /tmp/prediction-market-pg.dNzHHT/server.log -o '-h 127.0.0.1 -p 5433 -k /tmp/prediction-market-pg.dNzHHT -c timezone=UTC' -w -t 10 start
-```
-
-After stopping it, `hdiutil detach /tmp/prediction-market-postgres-image` unmounts
-the image. Temporary paths may disappear on cleanup/reboot; the standard Compose
-configuration remains in the repository.
+Current stop/start commands are in the linked 2C guide and use .local/postgres-data.
+The original /tmp data directory remains a backup. After stopping the server,
+`hdiutil detach /tmp/prediction-market-postgres-image` unmounts the runtime image.
 
 ## Concrete migration trace and important syntax
 
@@ -174,7 +169,8 @@ exercise or generate/apply another migration.
    price observations over time?
 2. Why doesn't editing nullable in models.py immediately change PostgreSQL?
 
-Pause before 2B. Milestone 2 is incomplete; no fetched quote has been saved yet.
+Atul cleared this checkpoint and requested continuation to 2B. Milestone 2
+remains incomplete; the current learning checkpoint is in the linked 2B guide.
 
 Official references checked October 12:
 

@@ -11,7 +11,8 @@ it with the attached `Prediction_Market_Project_Summary_and_Improvements.docx`
 and `AGENTS-prediction-market-engine.md`. The local [AGENTS.md](AGENTS.md) adapts
 the supplied guidance and restores the learning workflow. The planning review
 authorized documentation changes only. Atul subsequently
-requested continuation through 2A; implementation now pauses at the 2A checkpoint.
+cleared 2C and requested continuation through 3A; implementation now pauses at
+the 3A learning checkpoint.
 
 Where the PRD is ambiguous, use the clarifications below; they do not replace
 its remaining requirements. Explicit user instructions take precedence over
@@ -46,14 +47,31 @@ multi-worker coordination remain later work.
   acceptance checks passed. Atul cleared the simplified 1C understanding
   checkpoint (cursor continuation and 6 maximum markets at 2/page × 3 requests).
 - Step 2A: applied migration 0001 to real PostgreSQL 18.6 on October 12. All
-  three app tables are empty; 97 tests passed with real schema checks enabled.
-  See docs/step_2a.md for commands and the pending learning checkpoint.
+  three app tables were empty at verification; 97 tests passed. Atul correctly
+  answered the table/migration questions. Commit 83bbe53 was pushed to main.
+- Step 2B: live snapshot 1 was saved and read in a separate process on October
+  13; 105 tests passed on PostgreSQL. Atul cleared the simplified ingest/read
+  and transaction rollback questions. See docs/step_2b.md for the historical trace.
+- Step 2C: 111 tests passed, including sequential/concurrent duplicates,
+  unchanged-price new slots, and failure isolation. Live snapshot 1 replayed
+  twice unchanged; a later live collection inserted snapshot 4 with the same
+  ask price. PostgreSQL restarted from preserved .local/postgres-data and old
+  history remained readable. Atul cleared the checkpoint (one snapshot for a
+  repeat; a new snapshot for a later slot). His replay display exercise is present.
+  See docs/step_2c.md.
 - Docker is absent, so Compose startup is unverified. A temporary native
-  PostgreSQL verification cluster is running on localhost:5433. Unscaled exact
+  PostgreSQL cluster is running on localhost:5433. Unscaled exact
   NUMERIC plus checks preserves supported precision without silently rounding.
-- No application ingestion writes, API, worker, metrics report, or benchmark
-  is implemented. Committing step 2A does not complete milestone 2 or its
-  pending learning checkpoint.
+- Step 3A: health/readiness and stored-market list/detail routes are implemented.
+  129 tests passed, including real PostgreSQL route checks, read-only SQL checks,
+  invalid inputs, missing IDs, and sanitized database failures. Actual localhost
+  HTTP requests returned stored live-collected metadata. No new exchange request
+  was made in this step. See docs/step_3a.md; learning checkpoint pending.
+- One-shot ingestion, replay, and a metadata API are implemented. No quote/history
+  API, worker, metrics report, or benchmark exists. Native data is in ignored .local/postgres-data;
+  the runtime still depends on a mounted image. Compose remains unverified.
+  Milestone 2 is complete. Atul requested a checkpoint commit after 3A, combining
+  the 2B/2C storage work and 3A metadata routes; consult git log for its revision.
 
 ## Changes assigned to existing steps
 
@@ -62,10 +80,10 @@ multi-worker coordination remain later work.
 | 1A | Complete: fetch and inspect raw responses. Preserve the working script. |
 | 1B | Implemented and verified; Atul answered simplified questions correctly. Validate required fields and fixed-point strings, normalize with Decimal, preserve empty sides, and flag crossed quotes. |
 | 1C | Implemented, verified, and understanding checkpoint cleared. Bounded discovery, modules/commands, 85 offline tests, and a live normalized quote satisfy the milestone's technical acceptance checks. |
-| 2A | Implemented and migration 0001 applied to real PostgreSQL; learning checkpoint pending. Tables include run attribution/configuration/outcomes, exact numerics and constraints. App tables remain empty; 97 tests pass. |
-| 2B | Save/query one observation. Commit metadata and snapshot together per market. Persist the originating run ID; use committed rows as evidence of inserts. Prove durability. |
-| 2C | Add database conflict handling without replacing the first valid snapshot. Test sequential and competing inserts, unchanged-price new slots, and per-market rollback isolation against PostgreSQL. |
-| 3A | Implement health/readiness and market routes. Historical markets remain queryable regardless of watchlist membership. |
+| 2A | Implemented and verified; understanding checkpoint cleared. Tables include run attribution/configuration/outcomes, exact numerics and constraints. Revision 0001 applied; 97 tests passed at this checkpoint. |
+| 2B | Implemented and live-verified; understanding checkpoint cleared. Metadata/snapshot commit together with run attribution. Separate-process read succeeded; 105 tests passed at this checkpoint. |
+| 2C | Implemented and verified; understanding checkpoint cleared. Targeted conflict handling keeps first snapshots. Sequential/concurrent replay, new unchanged-price slots, rollback/isolation, and restart persistence pass on real PostgreSQL; 111 tests passed at this checkpoint. |
+| 3A | Implemented and verified; learning checkpoint pending. Health/readiness and bounded, ordered market metadata routes read PostgreSQL only. Closed markets remain queryable. 129 tests pass and actual localhost HTTP reads succeeded. |
 | 3B | Define explicit known-without-data, empty-book, crossed-book, and stale responses. Include market status separately from observation status. Test freshness with a controlled clock and verify no exchange calls. |
 | 3C | Implement bounded UTC history with stable ordering, decimal strings, 7-day range and 1,000-row caps. Test limits and invalid input; verify the manually refreshed pipeline end to end. |
 | 4A | One separate sequential worker; watchlist eligibility and closed-market handling; skip missed slots, retain history, and record actual timing. |

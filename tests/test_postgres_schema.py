@@ -2,16 +2,13 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
-import os
 
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 import pytest
 from sqlalchemy import DateTime, Numeric, inspect, text
-from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
-from database import make_engine
 from models import ingestion_runs, markets, metadata, snapshots
 
 
@@ -19,17 +16,8 @@ pytestmark = pytest.mark.postgres
 
 
 @pytest.fixture(scope="module")
-def engine():
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set TEST_DATABASE_URL to run real PostgreSQL schema checks")
-    if not (make_url(url).database or "").endswith("_test"):
-        pytest.fail("Use an isolated database whose name ends in _test")
-    engine = make_engine(url)
-    try:
-        yield engine
-    finally:
-        engine.dispose()
+def engine(postgres_engine):
+    return postgres_engine
 
 
 def test_initial_migration_is_applied(engine):

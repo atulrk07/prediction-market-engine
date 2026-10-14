@@ -11,7 +11,24 @@ from urllib.parse import quote
 import httpx
 
 from fetch_raw import BASE_URL, TIMEOUT, fetch_json
-from normalize_quote import normalize_orderbook
+from normalize_quote import Quote, normalize_orderbook
+
+
+def fetch_live_quote(client: httpx.Client, ticker: str) -> tuple[dict, Quote]:
+    """Fetch metadata and a book once, then return metadata and a valid quote."""
+    ticker_path = quote(ticker, safe="")
+    metadata = fetch_json(client, f"markets/{ticker_path}")
+    market = metadata.get("market")
+    if not isinstance(market, dict):
+        raise ValueError("Expected a market object")
+    if market.get("ticker") != ticker or market.get("market_type") != "binary":
+        raise ValueError("Expected the requested binary market")
+    if not isinstance(market.get("status"), str) or not market["status"]:
+        raise ValueError("Expected a market status string")
+    print(f"Market status: {market['status']}", file=sys.stderr)
+    data = fetch_json(client, f"markets/{ticker_path}/orderbook")
+    observed_at = datetime.now(timezone.utc)
+    return market, normalize_orderbook(data, ticker, observed_at)
 
 
 def main() -> int:
@@ -24,24 +41,13 @@ def main() -> int:
         if args.fixture is not None:
             data = json.loads(args.fixture.read_text())
             observed_at = datetime.now(timezone.utc)
+            result = normalize_orderbook(data, args.ticker, observed_at)
             label = "FIXTURE quote (synthetic data; timestamp is local inspection time)"
         else:
-            ticker_path = quote(args.ticker, safe="")
             with httpx.Client(base_url=BASE_URL + "/", timeout=TIMEOUT) as client:
-                metadata = fetch_json(client, f"markets/{ticker_path}")
-                market = metadata.get("market")
-                if not isinstance(market, dict):
-                    raise ValueError("Expected a market object")
-                if market.get("ticker") != args.ticker or market.get("market_type") != "binary":
-                    raise ValueError("Expected the requested binary market")
-                if not isinstance(market.get("status"), str) or not market["status"]:
-                    raise ValueError("Expected a market status string")
-                print(f"Market status: {market['status']}", file=sys.stderr)
-                data = fetch_json(client, f"markets/{ticker_path}/orderbook")
-                observed_at = datetime.now(timezone.utc)
+                _, result = fetch_live_quote(client, args.ticker)
             label = "LIVE normalized quote"
 
-        result = normalize_orderbook(data, args.ticker, observed_at)
         if result.is_crossed:
             logging.warning("%s: crossed quote; preserving observed values", args.ticker)
         print(f"{label}:")

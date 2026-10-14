@@ -14,11 +14,26 @@ Context for Codex before continuing work. Read this fully before editing.
   Atul cleared the simplified 1C checkpoint (cursor continuation and 6 markets
   maximum at 2/page × 3 requests). Step 2A is implemented and revision 0001
   applied to real PostgreSQL 18.6; 97 tests passed. See docs/step_2a.md.
-  The database tables are empty; app ingestion is not implemented. Docker is
-  absent; a temporary native verification cluster is running on localhost:5433.
-  Step 2A awaits its learning checkpoint. Do not start 2B before his answer or
-  explicit continuation. Milestone 1 is committed as 4961f38; step 2A is saved
-  in a separate schema checkpoint commit. Consult git log for its revision.
+  Atul cleared 2A (markets/snapshots and applying migrations). Step 2B is now
+  implemented and live-verified: snapshot 1 was committed and read in a separate
+  Python process on October 13; 105 tests passed. See docs/step_2b.md.
+  Atul cleared 2B (ingest/read and rollback). Step 2C is implemented and
+  verified: 111 tests passed, saved live snapshot 1 replayed twice without
+  changes, and a later live collection created snapshot 4 despite an unchanged
+  ask. Milestone 2's technical acceptance checks passed. See docs/step_2c.md.
+  No application check-then-insert is used. save_observation returns a dictionary
+  containing snapshot_id, run_id, and inserted/duplicate outcome.
+  Docker is absent; native PostgreSQL runs on localhost:5433 with preserved data
+  in ignored .local/postgres-data. Its runtime binaries remain on a mounted image.
+  Atul cleared 2C (one snapshot for a repeated slot; another for a later slot).
+  His replay display exercise is present and preserved. He explicitly authorized
+  3A. Step 3A is implemented: health/readiness and stored-market metadata routes;
+  129 tests passed on PostgreSQL, and actual localhost HTTP reads succeeded.
+  See docs/step_3a.md. The 3A learning checkpoint is pending; do not start 3B
+  before his answer or explicit continuation. Milestone 1 is committed as
+  4961f38 and 2A as 83bbe53. Atul requested a commit after 3A; this checkpoint
+  combines 2B/2C storage work and 3A metadata routes. Consult git log for its
+  revision. Milestone 3 remains incomplete and its 3A learning checkpoint pending.
 
 ## Learning workflow (PRD section 10)
 - Complete only one small runnable step per implementation checkpoint. Preserve

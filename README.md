@@ -1,15 +1,66 @@
 # Prediction Market Engine
 
-Current scope: milestone 1 is verified, and step 2A creates the PostgreSQL schema
-through a migration. Fetch/normalize/discovery and tests work; the database
-tables are currently empty. Saving observations, an API, and scheduling are
-not implemented. The 2A learning checkpoint is pending.
+Current scope: milestones 1 and 2 are complete, including their learning
+checkpoints. Step 3A adds a read-only HTTP API for health/readiness and stored
+market metadata. Fetching, normalization, discovery, PostgreSQL persistence,
+reads, and safe snapshot replay work. Quote/history routes and scheduling are
+upcoming. The 3A learning checkpoint is pending.
+
+[Step 3A walkthrough](docs/step_3a.md) explains incoming HTTP requests, database
+connections, market queries, and API responses. All 129 tests passed with
+PostgreSQL enabled. Actual localhost requests returned stored live-collected
+metadata; this step made no new Kalshi request. With PostgreSQL running and
+migration 0001 applied, start the API in one terminal:
+
+```sh
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pip install --no-build-isolation --no-deps -e .
+.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8000 --timeout-keep-alive 5 --timeout-graceful-shutdown 10
+```
+
+Use another terminal, or open http://127.0.0.1:8000/docs:
+
+```sh
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:8000/health
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:8000/ready
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 'http://127.0.0.1:8000/markets?limit=20&offset=0'
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:8000/markets/1
+```
+
+Replace 1 with an ID returned by the market list. API reads do not refresh the
+exchange; metadata status and updated_at describe stored data. Limit is 1–100;
+offset is how many rows to skip. Dates include UTC timezone information.
+
+[Step 2C walkthrough](docs/step_2c.md) explains duplicate handling and the live
+replay trace. All 111 tests passed on PostgreSQL. Same-market/same-slot repeats
+keep the first snapshot; a later slot creates history even at the same price.
+
+```sh
+.venv/bin/python replay_quote.py 1
+.venv/bin/python read_quote.py 1
+```
+
+[Step 2B walkthrough](docs/step_2b.md) explains transactions and save/read commands.
+One live snapshot was saved and read in a separate Python process on October 13;
+105 tests passed with PostgreSQL enabled at that checkpoint. Replay now works in 2C.
+No dependency or migration was added in 2B. Quick commands with PostgreSQL running:
+
+```sh
+.venv/bin/python -m pip install --no-build-isolation --no-deps -e .
+.venv/bin/python ingest_quote.py KXHIGHNY-26OCT14-B84.5
+.venv/bin/python read_quote.py 1
+```
+
+Select a current ticker through discovery if needed, and read the ID printed
+by ingestion. The current native cluster stores data in ignored
+.local/postgres-data after a verified restart with existing history intact.
+The standard Compose setup defines a named volume but remains unverified locally.
 
 [Step 2A walkthrough](docs/step_2a.md) explains the tables, migration commands,
 and database verification. Revision 0001 was applied to real PostgreSQL 18.6;
-97 tests passed with database checks enabled. Docker Compose startup remains
-unverified because Docker is not installed on this machine. A temporary native
-PostgreSQL cluster is running on localhost:5433 for this checkpoint.
+97 tests passed at that checkpoint. Docker Compose startup remains
+unverified because Docker is not installed on this machine. Native PostgreSQL
+is running on localhost:5433; current runtime commands are in the 2C guide.
 
 Planning: the [original PRD](Prediction_Market_Engine_PRD.md), including section
 10's learning workflow, is now in this repository. [PLAN.md](PLAN.md) records

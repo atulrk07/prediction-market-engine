@@ -5,9 +5,11 @@ from pathlib import Path
 import sys
 
 import httpx
+import pytest
 
 import discover_markets
 import fetch_quote
+import ingest_quote
 from fetch_raw import BASE_URL, TIMEOUT
 
 
@@ -42,3 +44,17 @@ def test_discovery_timeout_exits_one_without_candidates(monkeypatch, capsys, cap
     assert discover_markets.main() == 1
     assert capsys.readouterr().out == ""
     assert "Discovery failed" in caplog.text
+
+
+def test_ingestion_http_failure_does_not_open_database(monkeypatch, capsys, caplog):
+    def handler(request):
+        return httpx.Response(503, text="Synthetic upstream outage")
+
+    client = httpx.Client(base_url=BASE_URL + "/", timeout=TIMEOUT,
+                          transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(ingest_quote.httpx, "Client", lambda **kwargs: client)
+    monkeypatch.setattr(ingest_quote, "make_engine", lambda: pytest.fail("Failed HTTP must not save a quote"))
+    monkeypatch.setattr(sys, "argv", ["ingest_quote.py", "FIXTURE-FAILED"])
+    assert ingest_quote.main() == 1
+    assert capsys.readouterr().out == ""
+    assert "Collection failed" in caplog.text
