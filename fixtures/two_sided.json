@@ -1,5 +1,5 @@
 {
-  "_fixture": "Synthetic two-sided book for step 1B; not live Kalshi data",
+  "_fixture": "Synthetic two-sided order book; not live Kalshi data",
   "orderbook_fp": {
     "yes_dollars": [["0.4200", "10.00"], ["0.2000", "3.00"]],
     "no_dollars": [["0.5500", "8.00"], ["0.3000", "2.00"]]

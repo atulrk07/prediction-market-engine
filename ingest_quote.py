@@ -1,4 +1,4 @@
-"""Step 2B: fetch one live quote, commit it, and print a database read-back."""
+"""Fetch one live quote, commit it, and print the saved observation."""
 
 import argparse
 from datetime import datetime, timezone

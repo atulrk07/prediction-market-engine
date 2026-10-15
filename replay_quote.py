@@ -1,4 +1,4 @@
-"""Step 2C: replay a saved observation with its original slot; no HTTP calls."""
+"""Replay a saved observation with its original slot and no exchange requests."""
 
 import argparse
 from datetime import datetime

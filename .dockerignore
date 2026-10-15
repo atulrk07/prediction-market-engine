@@ -1,0 +1,14 @@
+.git
+.venv
+.local
+.pytest_cache
+**/__pycache__
+*.egg-info
+build
+dist
+.DS_Store
+.env
+.env.*
+watchlist.json
+tests
+fixtures

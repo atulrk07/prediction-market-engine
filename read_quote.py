@@ -1,4 +1,4 @@
-"""Step 2B: read an existing observation by snapshot ID without HTTP requests."""
+"""Read a stored observation by snapshot ID without exchange requests."""
 
 import argparse
 import json

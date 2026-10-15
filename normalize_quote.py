@@ -1,4 +1,4 @@
-"""Step 1B: validate raw Kalshi bids and calculate an exact YES quote."""
+"""Validate raw Kalshi bids and calculate an exact YES quote."""
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation

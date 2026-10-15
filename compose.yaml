@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: local_dev_password
       POSTGRES_DB: prediction_market
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     command: ["postgres", "-c", "timezone=UTC"]
     volumes:
       - postgres_data:/var/lib/postgresql
@@ -15,6 +15,53 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://prediction_market:local_dev_password@db:5432/prediction_market
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://prediction_market:local_dev_password@db:5432/prediction_market
+      STALE_AFTER_SECONDS: "${STALE_AFTER_SECONDS:-120}"
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5).close()"]
+      interval: 5s
+      timeout: 6s
+      retries: 10
+    stop_grace_period: 20s
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://prediction_market:local_dev_password@db:5432/prediction_market
+    command: ["python", "worker.py", "--watchlist", "/app/watchlist.json"]
+    volumes:
+      - type: bind
+        source: ./watchlist.json
+        target: /app/watchlist.json
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 60s
 
 volumes:
   postgres_data:

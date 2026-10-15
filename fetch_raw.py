@@ -1,4 +1,4 @@
-"""Step 1A: inspect live Kalshi JSON without quote normalization."""
+"""Inspect raw Kalshi market and order-book JSON."""
 
 import argparse
 import json

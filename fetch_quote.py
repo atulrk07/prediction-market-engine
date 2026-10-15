@@ -1,4 +1,4 @@
-"""Step 1B: print a normalized live quote or an explicitly labeled fixture."""
+"""Print a normalized live quote or an explicitly labeled fixture."""
 
 import argparse
 from datetime import datetime, timezone
@@ -14,8 +14,8 @@ from fetch_raw import BASE_URL, TIMEOUT, fetch_json
 from normalize_quote import Quote, normalize_orderbook
 
 
-def fetch_live_quote(client: httpx.Client, ticker: str) -> tuple[dict, Quote]:
-    """Fetch metadata and a book once, then return metadata and a valid quote."""
+def fetch_market(client: httpx.Client, ticker: str) -> dict:
+    """Fetch and validate metadata before deciding whether to request a book."""
     ticker_path = quote(ticker, safe="")
     metadata = fetch_json(client, f"markets/{ticker_path}")
     market = metadata.get("market")
@@ -26,9 +26,20 @@ def fetch_live_quote(client: httpx.Client, ticker: str) -> tuple[dict, Quote]:
     if not isinstance(market.get("status"), str) or not market["status"]:
         raise ValueError("Expected a market status string")
     print(f"Market status: {market['status']}", file=sys.stderr)
+    return market
+
+
+def fetch_book_quote(client: httpx.Client, ticker: str) -> Quote:
+    """Fetch one book and record its actual UTC response-receipt time."""
+    ticker_path = quote(ticker, safe="")
     data = fetch_json(client, f"markets/{ticker_path}/orderbook")
     observed_at = datetime.now(timezone.utc)
-    return market, normalize_orderbook(data, ticker, observed_at)
+    return normalize_orderbook(data, ticker, observed_at)
+
+
+def fetch_live_quote(client: httpx.Client, ticker: str) -> tuple[dict, Quote]:
+    """Fetch metadata and a book once; preserve the existing one-shot behavior."""
+    return fetch_market(client, ticker), fetch_book_quote(client, ticker)
 
 
 def main() -> int:

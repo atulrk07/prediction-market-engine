@@ -1,4 +1,4 @@
-"""Step 2A: PostgreSQL table definitions; no ingestion writes yet."""
+"""PostgreSQL tables, constraints, and indexes for market observations."""
 
 from sqlalchemy import (
     BigInteger, CheckConstraint, Column, DateTime, ForeignKey, Identity,

@@ -1,4 +1,4 @@
-"""Step 2A checks on real PostgreSQL. Synthetic rows always roll back."""
+"""Check schema constraints on real PostgreSQL; synthetic rows always roll back."""
 
 from datetime import datetime, timezone
 from decimal import Decimal

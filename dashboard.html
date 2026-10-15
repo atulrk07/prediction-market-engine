@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Monitor</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --hover: rgba(11, 11, 11, 0.04);
+  --selected: rgba(42, 120, 214, 0.08);
+  --bid: #2a78d6;
+  --ask: #eb6834;
+  --band: rgba(42, 120, 214, 0.10);
+  --good: #006300;
+  --critical: #d03b3b;
+  --warning-ink: #8a5a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --hover: rgba(255, 255, 255, 0.04);
+    --selected: rgba(57, 135, 229, 0.14);
+    --bid: #3987e5;
+    --ask: #d95926;
+    --band: rgba(57, 135, 229, 0.16);
+    --good: #0ca30c;
+    --critical: #e66767;
+    --warning-ink: #fab219;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+  --hover: rgba(255, 255, 255, 0.04);
+  --selected: rgba(57, 135, 229, 0.14);
+  --bid: #3987e5;
+  --ask: #d95926;
+  --band: rgba(57, 135, 229, 0.16);
+  --good: #0ca30c;
+  --critical: #e66767;
+  --warning-ink: #fab219;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 15px; margin: 0; }
+.sub { color: var(--ink-2); }
+.small { font-size: 12px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.banner { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 16px; }
+.banner[hidden] { display: none; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+}
+button:hover { background: var(--hover); }
+button:disabled { opacity: .5; cursor: default; }
+button[aria-pressed="true"] { border-color: var(--bid); color: var(--bid); font-weight: 600; }
+button:focus-visible, tr:focus-visible { outline: 2px solid var(--bid); outline-offset: 1px; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+#markets tbody tr { cursor: pointer; }
+#markets tbody tr:hover { background: var(--hover); }
+#markets tbody tr[aria-selected="true"] { background: var(--selected); }
+.ticker { font-size: 12px; color: var(--muted); }
+.chance { font-weight: 600; font-size: 15px; }
+
+.pill { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.pill.fresh { color: var(--good); }
+.pill.stale { color: var(--critical); }
+.pill.none { color: var(--muted); }
+.pill.warn { color: var(--warning-ink); }
+
+.detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 12px 0 4px; }
+.stat .label { font-size: 12px; color: var(--muted); }
+.stat .value { font-size: 22px; font-weight: 600; }
+.stat .value.hero { font-size: 32px; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); margin: 8px 0; flex-wrap: wrap; }
+.key { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 6px; border-radius: 1px; }
+.key.band { height: 10px; background: var(--band); }
+.chart-box { position: relative; transition: opacity .15s; }
+.chart-box.loading { opacity: .5; }
+svg { display: block; width: 100%; height: 300px; overflow: visible; }
+svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .12); min-width: 150px; font-variant-numeric: tabular-nums;
+}
+.tooltip[hidden] { display: none; }
+.tooltip .row { display: flex; align-items: center; gap: 6px; }
+.tooltip strong { min-width: 44px; display: inline-block; }
+.empty { padding: 40px 0; text-align: center; color: var(--muted); }
+
+details summary { cursor: pointer; font-weight: 600; }
+details dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0 0; }
+details dt { font-weight: 600; }
+details dd { margin: 0; color: var(--ink-2); }
+
+@media (max-width: 640px) {
+  .hide-sm { display: none; }
+  svg { height: 240px; }
+  details dl { grid-template-columns: 1fr; }
+  details dd { margin-bottom: 6px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Market Monitor</h1>
+      <div class="sub">Saved Kalshi prices from this database. Updates every 30 seconds.</div>
+    </div>
+    <div class="controls">
+      <span class="small" id="refreshed">Loading…</span>
+      <button type="button" id="refresh">Refresh now</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="status" hidden></div>
+
+  <section class="card" aria-labelledby="markets-title">
+    <h2 id="markets-title">Markets</h2>
+    <p class="small" style="margin:4px 0 8px">Click a market to see its price history.</p>
+    <div class="table-wrap">
+      <table id="markets">
+        <thead>
+          <tr>
+            <th>Market</th>
+            <th class="num" title="Midpoint of the bid and ask: the market's rough estimate that the answer is YES">Chance</th>
+            <th class="num hide-sm">Bid</th>
+            <th class="num hide-sm">Ask</th>
+            <th class="num hide-sm">Spread</th>
+            <th class="num">Updated</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="detail" aria-live="polite" hidden>
+    <div class="detail-head">
+      <div>
+        <h2 id="detail-title"></h2>
+        <div class="ticker" id="detail-ticker"></div>
+      </div>
+      <div class="controls" id="ranges" role="group" aria-label="Time range">
+        <button type="button" data-range="6">6 hours</button>
+        <button type="button" data-range="24">24 hours</button>
+        <button type="button" data-range="72">3 days</button>
+        <button type="button" data-range="168">7 days</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="legend">
+      <span><span class="key" style="background:var(--bid)"></span>Bid: the most anyone will pay for YES</span>
+      <span><span class="key" style="background:var(--ask)"></span>Ask: the cheapest YES for sale</span>
+      <span><span class="key band"></span>Spread</span>
+    </div>
+    <div class="chart-box" id="chart-box">
+      <svg id="chart" role="img" aria-label="Bid and ask price over time"></svg>
+      <div class="tooltip" id="tooltip" hidden></div>
+    </div>
+    <div class="controls" style="margin-top:12px">
+      <button type="button" id="toggle-table" aria-expanded="false">Show as table</button>
+      <button type="button" id="download" disabled>Download CSV</button>
+      <span class="small" id="count"></span>
+    </div>
+    <div class="table-wrap" id="history-wrap" hidden style="margin-top:12px; max-height:360px; overflow-y:auto">
+      <table id="history">
+        <thead>
+          <tr><th>Time</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Spread</th><th class="num">Bid size</th><th class="num">Ask size</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>How to read this</summary>
+    <dl>
+      <dt>Chance</dt><dd>The halfway point between bid and ask. A YES contract pays $1 if the answer is yes, so a price of 42¢ roughly means the market thinks there's a 42% chance.</dd>
+      <dt>Bid</dt><dd>The highest price someone is offering to buy YES at.</dd>
+      <dt>Ask</dt><dd>The lowest price YES is offered for sale at. Kalshi only lists bids, so this is 100¢ minus the best NO bid.</dd>
+      <dt>Spread</dt><dd>Ask minus bid. A small spread means an active market; a wide one means a few cents' disagreement or thin trading.</dd>
+      <dt>Size</dt><dd>How many contracts are available at the bid or ask price.</dd>
+      <dt>Updated</dt><dd>How long ago the worker saved this price. Stale means its age exceeds the configured limit, which defaults to 2 minutes.</dd>
+      <dt>Gaps</dt><dd>Unusually long gaps between collections break the chart lines. Missing prices are left empty.</dd>
+    </dl>
+  </details>
+</main>
+
+<script>
+"use strict";
+
+const REFRESH_MS = 30000;
+const HISTORY_PAGE = 1000;
+const state = { markets: [], quotes: new Map(), selected: null, rangeHours: 24, history: [], showTable: false,
+  overviewRequest: 0, historyRequest: 0, historyStatus: "idle" };
+const $ = (id) => document.getElementById(id);
+
+// Read and write the selected market and range in the URL, so a view can be bookmarked.
+function readHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const market = Number(params.get("market"));
+  const range = Number(params.get("range"));
+  if (Number.isInteger(market) && market > 0) state.selected = market;
+  if ([6, 24, 72, 168].includes(range)) state.rangeHours = range;
+}
+function writeHash() {
+  history.replaceState(null, "", `#market=${state.selected}&range=${state.rangeHours}`);
+}
+
+async function getJson(path) {
+  const response = await fetch(path, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+  if (!response.ok) {
+    let detail = response.statusText;
+    try { detail = (await response.json()).detail || detail; } catch {}
+    throw new Error(`${response.status} ${detail}`);
+  }
+  return response.json();
+}
+
+async function loadAllMarkets() {
+  const all = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await getJson(`/markets?limit=100&offset=${offset}`);
+    all.push(...page);
+    if (page.length < 100) return all;
+  }
+}
+
+async function loadHistory(id, hours) {
+  const end = new Date();
+  const start = new Date(end.getTime() - hours * 3600 * 1000);
+  const range = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+  const rows = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE) {
+    const page = await getJson(`/markets/${id}/history?${range}&limit=${HISTORY_PAGE}&offset=${offset}`);
+    rows.push(...page.observations);
+    if (page.observations.length < HISTORY_PAGE) return rows;
+  }
+}
+
+// Prices arrive as exact decimal strings; numbers are only used for display and drawing.
+const num = (value) => (value === null || value === undefined ? null : Number(value));
+const cents = (value) => {
+  const n = num(value);
+  if (n === null) return "—";
+  return `${parseFloat((n * 100).toFixed(2))}¢`;
+};
+const pct = (n) => (n === null ? "—" : `${(n * 100).toFixed(n * 100 < 10 ? 1 : 0)}%`);
+function midpoint(quote) {
+  if (!quote) return null;
+  const bid = num(quote.yes_bid), ask = num(quote.yes_ask);
+  return bid === null || ask === null ? null : (bid + ask) / 2;
+}
+function ago(seconds) {
+  if (seconds === null || seconds === undefined) return "never";
+  if (seconds < 0) return "clock skew";
+  if (seconds < 90) return `${Math.round(seconds)}s ago`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)} min ago`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)} h ago`;
+  return `${Math.round(seconds / 86400)} days ago`;
+}
+const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const dateTimeFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "class") node.className = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) node.append(child);
+  return node;
+}
+
+function freshnessPill(q) {
+  if (!q || q.status === "no_observations") return el("span", { class: "pill none" }, "○ No data yet");
+  if (q.is_stale) return el("span", { class: "pill stale" }, `⚠ ${ago(q.age_seconds)}`);
+  return el("span", { class: "pill fresh" }, `● ${ago(q.age_seconds)}`);
+}
+
+function bookNote(q) {
+  if (!q) return null;
+  const notes = {
+    empty_book: "No orders on either side",
+    one_sided: "Orders on one side only",
+    crossed: "Crossed: bid above ask",
+  };
+  return notes[q.status] ? el("div", { class: "pill warn" }, notes[q.status]) : null;
+}
+
+function renderMarkets() {
+  const body = $("markets").querySelector("tbody");
+  body.replaceChildren();
+  if (!state.markets.length) {
+    body.append(el("tr", {}, el("td", { colspan: "6", class: "empty" },
+      "No markets saved yet. Start the worker with a watchlist to begin collecting.")));
+    return;
+  }
+  for (const market of state.markets) {
+    const q = state.quotes.get(market.id);
+    const quote = q && q.quote;
+    const name = el("td", {}, el("div", {}, market.title), el("div", { class: "ticker" }, market.external_id));
+    if (market.status !== "active") name.append(el("div", { class: "pill none" }, `Market ${market.status}`));
+    const note = bookNote(q);
+    if (note) name.append(note);
+    const row = el("tr", { tabindex: "0", "aria-selected": String(market.id === state.selected) },
+      name,
+      el("td", { class: "num chance" }, pct(midpoint(quote))),
+      el("td", { class: "num hide-sm" }, cents(quote && quote.yes_bid)),
+      el("td", { class: "num hide-sm" }, cents(quote && quote.yes_ask)),
+      el("td", { class: "num hide-sm" }, cents(quote && quote.spread)),
+      el("td", { class: "num" }, freshnessPill(q)),
+    );
+    const choose = () => selectMarket(market.id);
+    row.addEventListener("click", choose);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); }
+    });
+    body.append(row);
+  }
+}
+
+function renderBanner(error) {
+  const banner = $("banner");
+  banner.replaceChildren();
+  if (error) {
+    banner.append(el("strong", {}, "⚠ Can't reach the API or database."), ` ${error.message}. Showing the last loaded data.`);
+    banner.hidden = false;
+    return;
+  }
+  const quotes = state.markets.filter((m) => m.status === "active").map((m) => state.quotes.get(m.id)).filter(Boolean);
+  const stale = quotes.filter((q) => q.status === "no_observations" || q.is_stale);
+  if (quotes.length && stale.length === quotes.length) {
+    banner.append(el("strong", {}, "⚠ No fresh data."),
+      " Every active market has missing or stale observations. Check collection by starting the worker with ",
+      el("code", {}, "docker compose up -d worker"), ".");
+    banner.hidden = false;
+  } else if (stale.length) {
+    banner.append(el("strong", {}, `⚠ ${stale.length} of ${quotes.length} active markets are stale.`),
+      " Check the worker logs with ", el("code", {}, "docker compose logs worker"), ".");
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+  }
+}
+
+async function refreshOverview() {
+  const request = ++state.overviewRequest;
+  try {
+    const markets = await loadAllMarkets();
+    const quotes = await Promise.all(markets.map((m) => getJson(`/markets/${m.id}/quote`)));
+    if (request !== state.overviewRequest) return false;
+    state.markets = markets;
+    state.quotes = new Map(quotes.map((q) => [q.market_id, q]));
+    renderBanner(null);
+    $("refreshed").textContent = `Last checked ${timeFmt.format(new Date())}`;
+  } catch (error) {
+    if (request !== state.overviewRequest) return false;
+    renderBanner(error);
+    return false;
+  }
+  renderMarkets();
+  if (state.selected === null && state.markets.length) state.selected = state.markets[0].id;
+  if (state.selected !== null && !state.markets.some((m) => m.id === state.selected) && state.markets.length) {
+    state.selected = state.markets[0].id;
+  }
+  return true;
+}
+
+async function refreshDetail() {
+  const request = ++state.historyRequest;
+  const hours = state.rangeHours;
+  const market = state.markets.find((m) => m.id === state.selected);
+  state.history = [];
+  state.historyStatus = "loading";
+  $("download").disabled = true;
+  if (!market) { $("detail").hidden = true; return; }
+  $("detail").hidden = false;
+  $("detail-title").textContent = market.title;
+  $("detail-ticker").textContent = `${market.external_id} · closes ${market.close_time ? dateTimeFmt.format(new Date(market.close_time)) : "—"}`;
+  for (const button of $("ranges").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.range) === state.rangeHours));
+  }
+  renderStats(state.quotes.get(market.id));
+  $("chart-box").classList.add("loading");
+  renderChart();
+  renderHistoryTable();
+  try {
+    const rows = await loadHistory(market.id, hours);
+    if (request !== state.historyRequest) return;
+    state.history = rows;
+    state.historyStatus = "ready";
+  } catch (error) {
+    if (request !== state.historyRequest) return;
+    state.historyStatus = "error";
+    renderBanner(error);
+  } finally {
+    if (request === state.historyRequest) {
+      $("chart-box").classList.remove("loading");
+      $("download").disabled = state.historyStatus !== "ready" || !state.history.length;
+      renderChart();
+      renderHistoryTable();
+    }
+  }
+}
+
+function renderStats(q) {
+  const quote = q && q.quote;
+  const stat = (label, value, hero) => el("div", { class: "stat" },
+    el("div", { class: "label" }, label), el("div", { class: hero ? "value hero" : "value" }, value));
+  $("stats").replaceChildren(
+    stat("Chance of YES", pct(midpoint(quote)), true),
+    stat("Bid", cents(quote && quote.yes_bid)),
+    stat("Ask", cents(quote && quote.yes_ask)),
+    stat("Spread", cents(quote && quote.spread)),
+    el("div", { class: "stat" }, el("div", { class: "label" }, "Updated"), el("div", { style: "margin-top:6px" }, freshnessPill(q))),
+  );
+}
+
+// ---- Chart: bid and ask lines with the spread shaded between them. ----
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs = {}) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  return node;
+}
+
+function niceStep(span, target) {
+  const raw = span / target;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw);
+}
+
+// Break lines where collection skipped slots, instead of drawing across missing minutes.
+function segmentsOf(points) {
+  const times = points.map((p) => p.t);
+  const gaps = times.slice(1).map((t, i) => t - times[i]).sort((a, b) => a - b);
+  const typical = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 60000;
+  const limit = Math.max(typical * 2.5, 90000);
+  const segments = [];
+  let current = [];
+  for (const point of points) {
+    if (current.length && point.t - current[current.length - 1].t > limit) { segments.push(current); current = []; }
+    current.push(point);
+  }
+  if (current.length) segments.push(current);
+  return segments;
+}
+
+function renderChart() {
+  const chart = $("chart");
+  const tooltip = $("tooltip");
+  chart.replaceChildren();
+  tooltip.hidden = true;
+  const rect = chart.getBoundingClientRect();
+  const width = Math.max(rect.width, 280), height = rect.height || 300;
+  const m = { top: 12, right: 52, bottom: 26, left: 44 };
+  const points = state.history.map((o) => ({
+    t: new Date(o.quote.observed_at).getTime(),
+    bid: num(o.quote.yes_bid), ask: num(o.quote.yes_ask), spread: num(o.quote.spread),
+    bidSize: o.quote.yes_bid_quantity, askSize: o.quote.yes_ask_quantity,
+  }));
+  $("count").textContent = state.historyStatus === "loading" ? "Loading history…"
+    : state.historyStatus === "error" ? "History unavailable"
+    : `${points.length.toLocaleString()} saved observations in this range`;
+  if (!points.length) {
+    const text = svg("text", { x: width / 2, y: height / 2, "text-anchor": "middle" });
+    text.textContent = state.historyStatus === "loading" ? "Loading history…"
+      : state.historyStatus === "error" ? "History could not be loaded. Try Refresh now."
+      : "No observations in this time range.";
+    chart.append(text);
+    return;
+  }
+
+  const end = Date.now(), start = end - state.rangeHours * 3600 * 1000;
+  const values = points.flatMap((p) => [p.bid, p.ask]).filter((v) => v !== null);
+  let lo = values.length ? Math.min(...values) : 0, hi = values.length ? Math.max(...values) : 1;
+  const pad = Math.max((hi - lo) * 0.15, 0.02);
+  lo = Math.max(0, lo - pad); hi = Math.min(1, hi + pad);
+  const yStep = niceStep(hi - lo, 4);
+  lo = Math.max(0, Math.floor(lo / yStep) * yStep); hi = Math.min(1, Math.ceil(hi / yStep) * yStep);
+  const x = (t) => m.left + ((t - start) / (end - start)) * (width - m.left - m.right);
+  const y = (v) => m.top + (1 - (v - lo) / (hi - lo)) * (height - m.top - m.bottom);
+
+  // Gridlines and y labels in cents.
+  for (let v = lo; v <= hi + 1e-9; v += yStep) {
+    chart.append(svg("line", { x1: m.left, x2: width - m.right, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }));
+    const label = svg("text", { x: m.left - 8, y: y(v) + 4, "text-anchor": "end" });
+    label.textContent = `${Math.round(v * 100)}¢`;
+    chart.append(label);
+  }
+  chart.append(svg("line", { x1: m.left, x2: width - m.right, y1: height - m.bottom, y2: height - m.bottom, stroke: "var(--axis)", "stroke-width": 1 }));
+
+  // X labels: hours for short ranges, days for long ones.
+  const tickCount = Math.max(2, Math.floor((width - m.left - m.right) / 110));
+  for (let i = 0; i <= tickCount; i++) {
+    const t = start + ((end - start) * i) / tickCount;
+    const label = svg("text", { x: x(t), y: height - 8, "text-anchor": i === 0 ? "start" : i === tickCount ? "end" : "middle" });
+    label.textContent = state.rangeHours > 24 ? dayFmt.format(t) + " " + timeFmt.format(t) : timeFmt.format(t);
+    chart.append(label);
+  }
+
+  const lastPoint = points[points.length - 1];
+  for (const segment of segmentsOf(points)) {
+    // Shade the spread only across runs where both sides of the book exist.
+    let both = [];
+    const shade = () => {
+      if (both.length > 1) {
+        const top = both.map((p) => `${x(p.t)},${y(p.ask)}`);
+        const bottom = both.slice().reverse().map((p) => `${x(p.t)},${y(p.bid)}`);
+        chart.append(svg("polygon", { points: top.concat(bottom).join(" "), fill: "var(--band)" }));
+      }
+      both = [];
+    };
+    for (const p of segment) { if (p.bid === null || p.ask === null) shade(); else both.push(p); }
+    shade();
+    for (const [key, color] of [["bid", "var(--bid)"], ["ask", "var(--ask)"]]) {
+      // Also break where one side of the book was empty.
+      let run = [];
+      const flush = () => {
+        if (run.length > 1) chart.append(svg("polyline", { points: run.join(" "), fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+        if (run.length === 1) { const [cx, cy] = run[0].split(","); chart.append(svg("circle", { cx, cy, r: 2.5, fill: color })); }
+        run = [];
+      };
+      for (const p of segment) { if (p[key] === null) flush(); else run.push(`${x(p.t)},${y(p[key])}`); }
+      flush();
+    }
+  }
+
+  // Direct labels on the latest values, nudged apart when they overlap.
+  const ends = [["Ask", lastPoint.ask], ["Bid", lastPoint.bid]].filter(([, v]) => v !== null).map(([name, v]) => ({ name, v, py: y(v) }));
+  if (ends.length === 2 && ends[1].py - ends[0].py < 14) {
+    const mid = (ends[0].py + ends[1].py) / 2; ends[0].py = mid - 7; ends[1].py = mid + 7;
+  }
+  for (const end of ends) {
+    const label = svg("text", { x: width - m.right + 6, y: end.py + 4 });
+    label.style.fill = "var(--ink-2)";
+    label.textContent = `${end.name} ${cents(end.v)}`;
+    chart.append(label);
+  }
+
+  // Crosshair and tooltip: snap to the nearest observation.
+  const cross = svg("line", { y1: m.top, y2: height - m.bottom, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" });
+  const bidDot = svg("circle", { r: 4, fill: "var(--bid)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
+  const askDot = svg("circle", { r: 4, fill: "var(--ask)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
+  const hit = svg("rect", { x: m.left, y: m.top, width: width - m.left - m.right, height: height - m.top - m.bottom, fill: "transparent" });
+  chart.append(cross, bidDot, askDot, hit);
+
+  const show = (clientX) => {
+    const box = chart.getBoundingClientRect();
+    const t = start + ((clientX - box.left - m.left) / (width - m.left - m.right)) * (end - start);
+    let best = points[0];
+    for (const p of points) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    const px = x(best.t);
+    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
+    for (const [dot, v] of [[bidDot, best.bid], [askDot, best.ask]]) {
+      if (v === null) dot.setAttribute("visibility", "hidden");
+      else { dot.setAttribute("cx", px); dot.setAttribute("cy", y(v)); dot.setAttribute("visibility", "visible"); }
+    }
+    const row = (color, value, label) => el("div", { class: "row" },
+      el("span", { class: "key", style: color ? `background:${color}` : "background:transparent" }),
+      el("strong", {}, value), el("span", { class: "small" }, label));
+    tooltip.replaceChildren(
+      el("div", { class: "small", style: "margin-bottom:4px" }, dateTimeFmt.format(best.t)),
+      row("var(--ask)", cents(best.ask), "Ask"),
+      row("var(--bid)", cents(best.bid), "Bid"),
+      row(null, cents(best.spread), "Spread"),
+    );
+    tooltip.hidden = false;
+    const left = px + 12 + tooltip.offsetWidth > width ? px - tooltip.offsetWidth - 12 : px + 12;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${m.top}px`;
+  };
+  const hide = () => {
+    tooltip.hidden = true;
+    for (const node of [cross, bidDot, askDot]) node.setAttribute("visibility", "hidden");
+  };
+  hit.addEventListener("pointermove", (event) => show(event.clientX));
+  hit.addEventListener("pointerdown", (event) => show(event.clientX));
+  hit.addEventListener("pointerleave", hide);
+}
+
+function renderHistoryTable() {
+  const body = $("history").querySelector("tbody");
+  body.replaceChildren();
+  if (!state.showTable) return;
+  for (const o of state.history.slice().reverse()) {
+    const q = o.quote;
+    body.append(el("tr", {},
+      el("td", {}, dateTimeFmt.format(new Date(q.observed_at))),
+      el("td", { class: "num" }, cents(q.yes_bid)),
+      el("td", { class: "num" }, cents(q.yes_ask)),
+      el("td", { class: "num" }, cents(q.spread)),
+      el("td", { class: "num" }, q.yes_bid_quantity ?? "—"),
+      el("td", { class: "num" }, q.yes_ask_quantity ?? "—"),
+    ));
+  }
+}
+
+// CSV keeps the API's exact decimal strings and UTC timestamps, ready for a spreadsheet or pandas.
+function downloadCsv() {
+  const market = state.markets.find((m) => m.id === state.selected);
+  if (!market || state.historyStatus !== "ready" || !state.history.length) return;
+  const columns = ["observed_at", "collection_slot", "ticker", "yes_bid", "yes_ask", "spread", "yes_bid_quantity", "yes_ask_quantity", "is_crossed", "snapshot_id"];
+  const escape = (value) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const lines = [columns.join(",")];
+  for (const o of state.history) {
+    const row = { ...o.quote, collection_slot: o.collection_slot, snapshot_id: o.snapshot_id };
+    lines.push(columns.map((c) => escape(row[c])).join(","));
+  }
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv" });
+  const link = el("a", { href: URL.createObjectURL(blob), download: `${market.external_id}_${state.rangeHours}h.csv` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function selectMarket(id) {
+  state.selected = id;
+  writeHash();
+  renderMarkets();
+  refreshDetail();
+}
+
+async function refreshAll() {
+  if (!await refreshOverview()) return;
+  if (state.selected !== null) writeHash();
+  await refreshDetail();
+}
+
+$("refresh").addEventListener("click", refreshAll);
+$("ranges").addEventListener("click", (event) => {
+  const range = Number(event.target.dataset && event.target.dataset.range);
+  if (!range) return;
+  state.rangeHours = range;
+  writeHash();
+  refreshDetail();
+});
+$("toggle-table").addEventListener("click", () => {
+  state.showTable = !state.showTable;
+  $("history-wrap").hidden = !state.showTable;
+  $("toggle-table").textContent = state.showTable ? "Hide table" : "Show as table";
+  $("toggle-table").setAttribute("aria-expanded", String(state.showTable));
+  renderHistoryTable();
+});
+$("download").addEventListener("click", downloadCsv);
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderChart, 150); });
+
+readHash();
+refreshAll();
+setInterval(() => { if (!document.hidden) refreshAll(); }, REFRESH_MS);
+</script>
+</body>
+</html>

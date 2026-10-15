@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prediction-market-engine"
 version = "0.0.1"
-description = "Fetch and store Kalshi observations; serve stored market metadata"
+description = "Fetch and store Kalshi observations; serve metadata, latest quotes, and history"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -21,12 +21,14 @@ kalshi-discover = "discover_markets:main"
 kalshi-ingest = "ingest_quote:main"
 kalshi-read = "read_quote:main"
 kalshi-replay = "replay_quote:main"
+kalshi-worker = "worker:main"
+kalshi-run = "read_run:main"
 
 [tool.setuptools]
 py-modules = [
     "fetch_raw", "fetch_quote", "normalize_quote", "discover_markets",
     "models", "database", "persistence", "ingest_quote", "read_quote", "replay_quote",
-    "api", "market_queries",
+    "api", "market_queries", "latest_quote", "history", "worker", "retrying", "run_records", "read_run",
 ]
 
 [tool.pytest.ini_options]

@@ -1,4 +1,4 @@
-"""Step 1C: list a bounded number of live active binary-market candidates."""
+"""List a bounded number of live active binary-market candidates."""
 
 import argparse
 import logging
