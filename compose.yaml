@@ -48,6 +48,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://prediction_market:local_dev_password@db:5432/prediction_market
+      DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL:-}"
     command: ["python", "worker.py", "--watchlist", "/app/watchlist.json"]
     volumes:
       - type: bind

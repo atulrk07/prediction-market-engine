@@ -36,6 +36,7 @@ Crossed quotes retain the observed values and negative spread, with
 | `markets` | Exchange ticker, title, status, and close time |
 | `snapshots` | Market/run references, collection slot, timestamps, prices, and quantities |
 | `ingestion_runs` | Configuration, outcomes, attempt counts, timing, and status |
+| `alert_rules` | Market, decimal threshold, enabled/alerted state, and last delivery time |
 
 Markets are unique by `(platform, external_id)`. Snapshots are unique by
 `(market_id, collection_slot)`. Insertion uses `ON CONFLICT DO NOTHING`, keeping
@@ -84,6 +85,17 @@ new requests and wake scheduler waits while allowing in-flight work to finish.
 
 ## API behavior
 
+Local/private alert routes create, list, and disable rules. An enabled rule sends
+to Discord when a newly committed snapshot's YES ask is below its threshold and
+the rule has not alerted. An ask at or above the threshold rearms it. Alert state
+commits separately from ingestion; failed notification or state writes cannot
+undo a snapshot or change its ingestion outcome. The single worker delivers
+synchronously after finishing the cycle's collection, with a five-second HTTP
+timeout and no immediate retries. Delivery cannot consume another market's
+collection budget, but can delay the next cycle.
+Delivery is best effort: a send followed by a failed state commit can produce a
+duplicate on a later snapshot. See the README for configuration and API commands.
+
 Latest quotes are selected by `(observed_at DESC, id DESC)`. Collection age is
 measured from `observed_at`. An observation is stale when its age exceeds the
 configured threshold, default 120 seconds. Negative age indicates clock skew
@@ -117,12 +129,12 @@ Compose starts PostgreSQL, waits for readiness, applies Alembic migrations,
 then starts the API and one worker. The database uses a named volume. API and
 database ports bind to localhost. The API never starts a collector itself.
 
-Unit tests use mocked exchange HTTP; integration tests use an isolated
+Unit tests use mocked exchange and Discord HTTP; integration tests use an isolated
 PostgreSQL database whose name ends in `_test`. The container persistence check
 saves a labeled synthetic quote and verifies its values and IDs after removing
 and recreating containers. Live collection is checked separately.
 
-Verification includes 276 Python tests, eight JavaScript regression tests, and
+Verification includes 324 Python tests, eight JavaScript regression tests, and
 Chrome checks for charts, exports, and request ordering. Local Docker checks
 verify startup and persistence. Three live cycles across five markets saved
 15 snapshots. Both synthetic test data and live history survived container

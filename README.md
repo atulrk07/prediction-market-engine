@@ -76,6 +76,67 @@ History accepts timezone-aware `start` and `end`, includes start and excludes
 end, and sorts by `(observed_at, id)`. Maximum range: seven days. Maximum page:
 1,000 observations. Invalid ranges and pagination parameters return 422.
 
+## Price alerts
+
+Alert rules watch a market's saved YES ask. These routes have no authentication
+and are intended for local/private use; keep the API bound to localhost or on
+a trusted private network.
+
+Use a database market ID from `GET /markets`. Thresholds are exact decimal
+strings, strictly between 0 and 1 (`"0.40"` means $0.40 per contract):
+
+```sh
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 \
+  -X POST http://127.0.0.1:8000/alert-rules \
+  -H 'Content-Type: application/json' -d '{"market_id":1,"threshold":"0.40"}'
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 \
+  'http://127.0.0.1:8000/alert-rules?limit=20&offset=0'
+curl --fail --silent --show-error --connect-timeout 2 --max-time 10 \
+  -X POST http://127.0.0.1:8000/alert-rules/1/disable
+```
+
+Create returns 201; list and disable return 200. Replace the example rule ID in
+the disable URL with the returned ID. Lists include disabled rules, ordered by
+ID, with at most 100 per page. Unknown markets/rules return 404; invalid
+thresholds or pagination return 422; database failures return 503.
+
+Add your Discord webhook to the local `.env` file, which Git ignores. Never
+commit this file or the webhook URL:
+
+```dotenv
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN
+```
+
+Compose passes this setting only to the worker. Apply migrations and start the
+updated API and the existing single worker:
+
+```sh
+docker compose build
+docker compose run --rm migrate
+docker compose up -d --wait --wait-timeout 90 api worker
+```
+
+For a worker run directly with Python, set `DISCORD_WEBHOOK_URL` in that
+process's environment and use the existing `worker.py --watchlist watchlist.json`
+command. Do not run a second worker alongside the Compose worker.
+
+After each cycle finishes collecting, the worker evaluates its newly committed
+snapshots. An enabled rule sends when `YES ask < threshold`
+and it has not already alerted. Its first observation can trigger it. A confirmed
+delivery sets `is_alerted` and `last_alerted_at`; staying below does not send again.
+An ask at or above the threshold resets `is_alerted`, allowing a later drop to
+trigger another message. Missing asks and disabled rules are skipped. Messages
+include market name/ticker, threshold, ask, and observation time.
+
+Delivery is best effort, with a five-second HTTP timeout and no immediate retry.
+An unset webhook or failed delivery leaves the rule eligible for a later snapshot.
+A crash after sending but before saving rule state can cause a duplicate; an
+alert-state database failure can do the same. Failed delivery is retried only
+on a later newly saved snapshot, not by replay or a duplicate collection attempt.
+Alerts run outside ingestion transactions, so failures cannot roll back snapshots
+or turn a successful ingestion into a failure. Delivery is synchronous and can
+lengthen collection cycles. The existing single-worker assumption still applies.
+
 ## Configuration
 
 | Setting | Default | Purpose |
@@ -84,6 +145,7 @@ end, and sorts by `(observed_at, id)`. Maximum range: seven days. Maximum page:
 | `POSTGRES_PORT` | `5433` | PostgreSQL port on the host |
 | `STALE_AFTER_SECONDS` | `120` | Age after which a saved quote is stale |
 | `DATABASE_URL` | Local PostgreSQL URL in `database.py` | Database connection for Python commands |
+| `DISCORD_WEBHOOK_URL` | Unset | Optional worker-only Discord price-alert destination |
 
 Set variables before starting Compose. For example, if the default ports are
 occupied:
@@ -157,11 +219,11 @@ Dashboard regression tests use Node.js 22 or later and its built-in test runner:
 node --test tests/test_dashboard.cjs
 ```
 
-Without `TEST_DATABASE_URL`, PostgreSQL tests skip. Exchange HTTP is mocked in
+Without `TEST_DATABASE_URL`, PostgreSQL tests skip. Exchange and Discord HTTP are mocked in
 the test suite. GitHub Actions runs the tests with PostgreSQL, builds the images,
 and checks API startup and synthetic data persistence across container recreation.
 
-Local verification passed 276 Python tests and eight dashboard regression tests.
+Local verification passed 324 Python tests and eight dashboard regression tests.
 Chrome checks cover charts, CSV downloads, failed requests, and responses arriving
 out of order. Docker checks verify startup, dashboard delivery, and saved data
 surviving container recreation. A separate live smoke check collected 15 snapshots
@@ -171,7 +233,7 @@ across five markets over three cycles, with all 30 exchange requests succeeding.
 
 The database enforces one observation per market and collection slot. Writes
 commit per market, retries are bounded, and downtime leaves visible gaps.
-Unfinished ingestion runs are reported as incomplete. The API always reads saved
+Unfinished ingestion runs are reported as incomplete. Market routes read saved
 data, so collection failures do not prevent access to existing history.
 
 See [architecture](docs/architecture.md) for normalization, transaction, retry,

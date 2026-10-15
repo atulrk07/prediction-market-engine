@@ -14,6 +14,7 @@ import time
 import httpx
 from sqlalchemy.exc import SQLAlchemyError
 
+from alerts import process_snapshot_alerts
 from database import make_engine
 from fetch_quote import fetch_book_quote, fetch_market
 from fetch_raw import BASE_URL, TIMEOUT
@@ -62,6 +63,7 @@ def collect_cycle(client, engine, tickers: list[str], slot: datetime, interval: 
     logging.info("Started run=%s slot=%s", run_id, slot.isoformat())
     audit_lost = False
     unvisited_reason = "cycle_budget_exhausted"
+    committed_snapshot_ids = []
     for ticker in tickers:
         try:
             budget.check(stop)
@@ -87,6 +89,8 @@ def collect_cycle(client, engine, tickers: list[str], slot: datetime, interval: 
                     logging.warning("%s: crossed quote; preserving observed values", ticker)
                 phase = "storage"
                 saved = save_in_run(engine, run_id, market, quote, slot, {"request_attempts": dict(requester.attempts)})
+                if saved["outcome"] == "inserted":
+                    committed_snapshot_ids.append(saved["snapshot_id"])
                 logging.info("run=%s %s: %s snapshot=%s observed_at=%s", run_id, ticker,
                              saved["outcome"], saved["snapshot_id"], quote.observed_at.isoformat())
         except CollectionStopped as error:
@@ -112,6 +116,13 @@ def collect_cycle(client, engine, tickers: list[str], slot: datetime, interval: 
                 logging.error("run=%s ticker=%s outcome could not be persisted; run is incomplete", run_id, ticker)
         logging.info("run=%s ticker=%s duration=%.3fs attempts=%s", run_id, ticker, monotonic() - began, requester.attempts)
     result = finish_run(engine, run_id, interrupted=stop.is_set() or audit_lost, unvisited_reason=unvisited_reason)
+    # Finish collection first so Discord cannot consume another market's fetch budget.
+    for snapshot_id in committed_snapshot_ids:
+        try:
+            process_snapshot_alerts(engine, snapshot_id)
+        except Exception:
+            # Alert failures never change the already committed ingestion outcome.
+            logging.error("Alert processing failed snapshot=%s", snapshot_id)
     logging.info("Run result=%s retry_wait=%.3fs elapsed=%.3fs", result, budget.waited, monotonic() - budget.started)
     return result
 

@@ -1,7 +1,8 @@
-"""Read-only health, metadata, latest-quote, and bounded-history routes."""
+"""Stored market reads and local/private alert-rule management."""
 
 from contextlib import asynccontextmanager
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path as FilePath
 from typing import Annotated, Iterator, Literal
 
@@ -16,7 +17,7 @@ from database import make_engine
 from history import history_range
 from latest_quote import build_latest_quote, stale_after_seconds, utc_now
 from market_queries import find_latest_snapshot, find_market, list_history, list_markets, market_has_observations
-from models import markets, snapshots
+from models import alert_rules, markets, snapshots
 from normalize_quote import Quote
 from persistence import quote_from_snapshot
 
@@ -41,6 +42,20 @@ class MarketResponse(BaseModel):
     status: str
     close_time: datetime | None
     updated_at: datetime
+
+
+class AlertRuleCreate(BaseModel):
+    market_id: int = Field(gt=0, le=9223372036854775807)
+    threshold: Decimal = Field(gt=Decimal("0"), lt=Decimal("1"), allow_inf_nan=False)
+
+
+class AlertRuleResponse(BaseModel):
+    id: int
+    market_id: int
+    threshold: Decimal
+    enabled: bool
+    is_alerted: bool
+    last_alerted_at: AwareDatetime | None
 
 
 class LatestQuoteResponse(BaseModel):
@@ -96,7 +111,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Prediction Market Data API",
-    description="Read stored Kalshi metadata, latest quotes, and bounded history from PostgreSQL. GET requests do not refresh Kalshi.",
+    description="Read stored Kalshi data and manage price alerts. GET requests do not refresh Kalshi. Alert writes are for local/private use; no authentication is provided.",
     version="0.0.1",
     lifespan=lifespan,
 )
@@ -149,6 +164,49 @@ def market_list(
 ):
     """Stored markets, including closed markets, ordered by database ID."""
     return list_markets(connection, limit, offset)
+
+
+@app.post(
+    "/alert-rules", response_model=AlertRuleResponse, status_code=201,
+    responses={**DATABASE_ERRORS, 404: {"model": ErrorResponse, "description": "Unknown market"}},
+)
+def create_alert_rule(rule: AlertRuleCreate, connection: DatabaseConnection):
+    """Local/private use: create an enabled rule; thresholds are exact decimals."""
+    if find_market(connection, rule.market_id) is None:
+        raise HTTPException(status_code=404, detail="Market not found")
+    saved = connection.execute(alert_rules.insert().values(
+        market_id=rule.market_id, threshold=rule.threshold,
+    ).returning(alert_rules)).mappings().one()
+    connection.commit()
+    return saved
+
+
+@app.get("/alert-rules", response_model=list[AlertRuleResponse], responses=DATABASE_ERRORS)
+def list_alert_rules(
+    connection: DatabaseConnection,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0, le=9223372036854775807)] = 0,
+):
+    """Rules, including disabled rules, ordered by database ID."""
+    return connection.execute(select(alert_rules).order_by(alert_rules.c.id).limit(limit).offset(offset)).mappings().all()
+
+
+@app.post(
+    "/alert-rules/{id}/disable", response_model=AlertRuleResponse,
+    responses={**DATABASE_ERRORS, 404: {"model": ErrorResponse, "description": "Unknown alert rule"}},
+)
+def disable_alert_rule(
+    connection: DatabaseConnection,
+    id: Annotated[int, Path(gt=0, le=9223372036854775807)],
+):
+    """Local/private use: disable a rule; repeated requests are safe."""
+    rule = connection.execute(alert_rules.update().where(alert_rules.c.id == id).values(
+        enabled=False,
+    ).returning(alert_rules)).mappings().one_or_none()
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Alert rule not found")
+    connection.commit()
+    return rule
 
 
 @app.get(

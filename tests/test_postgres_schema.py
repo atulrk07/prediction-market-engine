@@ -20,10 +20,10 @@ def engine(postgres_engine):
     return postgres_engine
 
 
-def test_initial_migration_is_applied(engine):
-    assert {"markets", "snapshots", "ingestion_runs", "alembic_version"}.issubset(inspect(engine).get_table_names())
+def test_migrations_are_applied(engine):
+    assert {"markets", "snapshots", "ingestion_runs", "alert_rules", "alembic_version"}.issubset(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002"
 
 
 def test_tables_match_sqlalchemy_models(engine):
@@ -47,7 +47,7 @@ def test_keys_and_history_index_exist(engine):
 
 def test_timestamp_and_decimal_storage_types(engine):
     inspector = inspect(engine)
-    for table in ("markets", "snapshots", "ingestion_runs"):
+    for table in ("markets", "snapshots", "ingestion_runs", "alert_rules"):
         for column in inspector.get_columns(table):
             if isinstance(column["type"], DateTime):
                 assert column["type"].timezone

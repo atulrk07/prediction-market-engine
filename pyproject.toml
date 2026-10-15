@@ -28,7 +28,7 @@ kalshi-run = "read_run:main"
 py-modules = [
     "fetch_raw", "fetch_quote", "normalize_quote", "discover_markets",
     "models", "database", "persistence", "ingest_quote", "read_quote", "replay_quote",
-    "api", "market_queries", "latest_quote", "history", "worker", "retrying", "run_records", "read_run",
+    "api", "market_queries", "latest_quote", "history", "worker", "retrying", "run_records", "read_run", "alerts",
 ]
 
 [tool.pytest.ini_options]

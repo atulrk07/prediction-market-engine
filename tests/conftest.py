@@ -3,6 +3,7 @@
 import httpx
 import pytest
 import os
+import urllib.request
 from sqlalchemy.engine import make_url
 
 from database import make_engine
@@ -14,6 +15,13 @@ def block_real_http(monkeypatch):
         raise AssertionError("Offline tests must use httpx.MockTransport")
 
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", blocked_request)
+
+    def blocked_discord(*args, **kwargs):
+        raise AssertionError("Offline tests must mock Discord HTTP")
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", blocked_discord)
+    # An inherited developer webhook must never be used by the tests.
+    monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
 
 
 @pytest.fixture(scope="module")

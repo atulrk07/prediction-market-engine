@@ -1,7 +1,7 @@
 """PostgreSQL tables, constraints, and indexes for market observations."""
 
 from sqlalchemy import (
-    BigInteger, CheckConstraint, Column, DateTime, ForeignKey, Identity,
+    BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Identity,
     Index, Integer, MetaData, Numeric, Table, Text, UniqueConstraint, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -19,6 +19,17 @@ markets = Table(
     Column("close_time", DateTime(timezone=True), nullable=True),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     UniqueConstraint("platform", "external_id", name="uq_markets_platform_external_id"),
+)
+
+alert_rules = Table(
+    "alert_rules", metadata,
+    Column("id", BigInteger, Identity(), primary_key=True),
+    Column("market_id", BigInteger, ForeignKey("markets.id", ondelete="RESTRICT"), nullable=False),
+    Column("threshold", Numeric(asdecimal=True), nullable=False),
+    Column("enabled", Boolean, nullable=False, server_default=text("true")),
+    Column("is_alerted", Boolean, nullable=False, server_default=text("false")),
+    Column("last_alerted_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint("threshold > 0 AND threshold < 1", name="ck_alert_rules_threshold"),
 )
 
 ingestion_runs = Table(

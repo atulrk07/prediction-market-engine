@@ -36,8 +36,14 @@ def test_health_survives_database_outage_and_engine_closes(monkeypatch):
     monkeypatch.setattr(api, "make_engine", lambda: engine)
     with TestClient(api.app) as client:
         assert client.get("/health").json() == {"status": "ok"}
-        for path in ("/ready", "/markets", "/markets/1", "/markets/1/quote", "/markets/1/history"):
+        for path in ("/ready", "/markets", "/markets/1", "/markets/1/quote", "/markets/1/history", "/alert-rules"):
             response = client.get(path)
+            assert response.status_code == 503
+            assert response.json() == {"detail": "Database unavailable"}
+            assert "private-password" not in response.text
+        for path, payload in (("/alert-rules", {"market_id": 1, "threshold": "0.40"}),
+                              ("/alert-rules/1/disable", None)):
+            response = client.post(path, json=payload)
             assert response.status_code == 503
             assert response.json() == {"detail": "Database unavailable"}
             assert "private-password" not in response.text
@@ -85,6 +91,7 @@ def test_documentation_describes_implemented_routes_and_string_prices():
         schema = client.get("/openapi.json").json()
     assert set(schema["paths"]) == {
         "/health", "/ready", "/markets", "/markets/{id}", "/markets/{id}/quote", "/markets/{id}/history",
+        "/alert-rules", "/alert-rules/{id}/disable",
     }
     parameters = {item["name"]: item["schema"] for item in schema["paths"]["/markets"]["get"]["parameters"]}
     assert parameters["limit"]["maximum"] == 100
