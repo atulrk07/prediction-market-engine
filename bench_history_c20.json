@@ -1,0 +1,26 @@
+{
+  "timestamp_utc": "2026-10-15T04:09:51.910106+00:00",
+  "base_url": "http://localhost:8000",
+  "endpoint": "history",
+  "market": 1,
+  "params": {
+    "limit": 100
+  },
+  "requests": 2000,
+  "concurrency": 20,
+  "warmup": 100,
+  "environment": "your laptop",
+  "ok": 2000,
+  "errors": 0,
+  "error_breakdown": {},
+  "wall_seconds": 112.472,
+  "throughput_rps": 17.8,
+  "latency_ms": {
+    "p50": 1155.6,
+    "p95": 1292.1,
+    "p99": 1353.2,
+    "min": 272.7,
+    "max": 1622.3,
+    "mean": 1122.5
+  }
+}
